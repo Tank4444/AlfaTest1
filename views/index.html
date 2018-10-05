@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html ng-app="app">
+
+<head>
+    <title>AlfaTest1</title>
+    <link rel="stylesheet" href="/stylesheets/bootstrap.min.css">
+    <link rel="stylesheet" href="/stylesheets/bootstrap-theme.min.css">
+    <link rel="stylesheet" href="/stylesheets/style.css">
+    <script src="/js/angular.min.js"></script>
+    <script src="/js/angular-route.min.js"></script>
+    <meta charset="utf-8">
+</head>
+
+<body>
+    <div class="container">
+        <a role="button" class="btn btn-dark" href="#!home">Начало</a>
+        <a role="button" class="btn btn-dark" href="#!top">Топ 5</a>
+        <a role="button" class="btn btn-dark" href="#!full">Весь список</a>
+    </div>
+
+    <div class="container">
+        <ng-view>
+
+        </ng-view>
+    </div>
+
+    <script>
+        //Init app
+        var app = angular.module('app', ["ngRoute"]);
+        //Routing
+        app.config(function($routeProvider) {
+            $routeProvider.when('/home', {
+                template: `
+                    <div ng-controller="homeController">
+                        <h1>{{tit}}</h1>
+                    </div>`,
+                controller: 'homeController'
+            });
+            $routeProvider.when('/full', {
+                template: `
+                    <div ng-controller="fullController">
+                            <table class="table table-bordered table-hover">
+                                <tr>
+                                    <td>Место</td>
+                                    <td>ФИО</td>
+                                    <td>Статус</td>
+                                    <td>Опыт</td>
+                                    <td>Монеты</td>
+                                </tr>
+                                <tr ng-repeat="man in content">
+                                    <td>{{man.mest}}</td>
+                                    <td>{{man.fio}}</td>
+                                    <td>{{man.level}}</td>
+                                    <td>{{man.opit}}</td>
+                                    <td>{{man.money}}</td>
+                                </tr>
+                            </table>
+                    </div>`,
+                controller: 'fullController'
+            });
+            $routeProvider.when('/top', {
+                template: `
+                    <div ng-controller="topController">
+                            <table class="table table-bordered table-hover">
+                                <tr>
+                                    <td>Место</td>
+                                    <td>ФИО</td>
+                                    <td>Статус</td>
+                                    <td>Опыт</td>
+                                    <td>Монеты</td>
+                                </tr>
+                                <tr ng-repeat="man in content">
+                                    <td>{{man.mest}}</td>
+                                    <td>{{man.fio}}</td>
+                                    <td>{{man.level}}</td>
+                                    <td>{{man.opit}}</td>
+                                    <td>{{man.money}}</td>
+                                </tr>
+                            </table>
+                    </div>`,
+                controller: 'fullController'
+            });
+        });
+
+        function findSum(ar) {
+            var res = 0;
+            var arr = JSON.parse(ar.resources);
+            for (var i = 0; i < arr.length; i++) {
+                if (arr[i].resource.localeCompare("LEVEL") != 0) {
+                    res = res + arr[i].value;
+                }
+            }
+            return res;
+        }
+
+        function findMoney(ar) {
+            var arr = JSON.parse(ar.resources);
+            for (var i = 0; i < arr.length; i++) {
+                if (arr[i].resource.localeCompare("MONEY") === 0) {
+                    return arr[i].value;
+                }
+            }
+        }
+
+        function findOpit(ar) {
+            var res = 0;
+            var arr = JSON.parse(ar.resources);
+            for (var i = 0; i < arr.length; i++) {
+                if (arr[i].resource.localeCompare("ACTIVERATE") === 0) {
+                    res = res + arr[i].value;
+                }
+                if (arr[i].resource.localeCompare("PASSIVERATE") === 0) {
+                    res = res + arr[i].value;
+                }
+            }
+            return res;
+        }
+
+        //Controller
+        app.controller('homeController',
+            function homeController($scope) {
+
+                $scope.tit = 'Главная страница';
+            }
+        )
+        app.controller('fullController',
+            function homeController($scope, $http) {
+                $http.get("/api/json")
+                    .then(function(response) {
+                        var originalFile = response.data;
+                        //var arr = JSON.parse(originalFile[0].resources);
+                        //$scope.content = arr[0].resource;
+                        var res = [];
+                        var maxIndex;
+                        var mest = 1;
+                        while (originalFile.length != 0) {
+                            maxIndex = 0;
+                            for (var i = 1; i < originalFile.length; i++) {
+                                var sum1 = findSum(originalFile[maxIndex]);
+                                var sum2 = findSum(originalFile[i]);
+                                if (sum1 < sum2) maxIndex = i;
+                            }
+                            var pers = {};
+                            pers.fio = originalFile[maxIndex].fio;
+                            pers.level = originalFile[maxIndex].level;
+                            pers.money = findMoney(originalFile[maxIndex]);
+                            pers.opit = findOpit(originalFile[maxIndex]);
+                            //if result array not empty
+                            if (res.length != 0) {
+                                var sum1, sum2;
+                                sum1 = res[res.length - 1].money + res[res.length - 1].opit;
+                                sum2 = pers.money + pers.opit;
+                                if (sum1 != sum2) {
+                                    mest++;
+                                    pers.mest = mest;
+                                } else {
+                                    pers.mest = mest
+                                }
+
+                            } else {
+                                //if result array empty
+                                pers.mest = mest
+                            }
+                            res.push(pers);
+                            originalFile.splice(maxIndex, 1);
+                        }
+                        $scope.content = res;
+                    }, function(response) {
+
+                        $scope.error = "Something went wrong";
+                    });
+            },
+
+        )
+        app.controller('topController',
+            function($scope, $http) {
+                $http.get("/api/json")
+                    .then(function(response) {
+                        var originalFile = response.data;
+                        //var arr = JSON.parse(originalFile[0].resources);
+                        //$scope.content = arr[0].resource;
+                        var res = [];
+                        var maxIndex;
+                        var mest = 1;
+                        while (originalFile.length != 0) {
+                            maxIndex = 0;
+                            for (var i = 1; i < originalFile.length; i++) {
+                                var sum1 = findSum(originalFile[maxIndex]);
+                                var sum2 = findSum(originalFile[i]);
+                                if (sum1 < sum2) maxIndex = i;
+                            }
+                            var pers = {};
+                            pers.fio = originalFile[maxIndex].fio;
+                            pers.level = originalFile[maxIndex].level;
+
+                            pers.money = findMoney(originalFile[maxIndex]);
+                            pers.opit = findOpit(originalFile[maxIndex]);
+                            //if result array not empty
+                            if (res.length != 0) {
+                                var sum1, sum2;
+                                sum1 = res[res.length - 1].money + res[res.length - 1].opit;
+                                sum2 = pers.money + pers.opit;
+                                if (sum1 != sum2) {
+                                    mest++;
+                                    if (mest > 5) {
+                                        $scope.content = res;
+                                        return;
+                                    }
+                                    pers.mest = mest;
+                                } else {
+                                    pers.mest = mest
+                                }
+
+                            } else {
+                                //if result array empty
+                                pers.mest = mest
+                            }
+                            res.push(pers);
+                            originalFile.splice(maxIndex, 1);
+                        }
+                        $scope.content = res;
+                    }, function(response) {
+
+                        $scope.error = "Something went wrong";
+                    });
+            },
+        )
+    </script>
+
+</body>
+
+</html>
